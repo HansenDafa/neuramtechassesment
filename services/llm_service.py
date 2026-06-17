@@ -1,15 +1,27 @@
 import httpx
 import json
 import re
+import os
 from typing import Dict
 
 
-def extract_structured_info(text: str, api_key: str, model: str = "gpt-4o-mini") -> Dict[str, str]:
+def extract_structured_info(text: str, api_key: str, model: str = "gpt-4o-mini", url: str = "https://api.openrouter.ai/v1/chat/completions") -> Dict[str, str]:
     """Call OpenRouter to extract structured fields from CV text.
 
     Returns a dict with keys: name, location, work_experience_summary.
     Raises ValueError for missing API key and RuntimeError for request failures.
     """
+    # Allow a mock mode for local demos where network or API keys are unavailable.
+    # If MOCK_LLM is set to "1" we return a deterministic sample regardless
+    # of whether API keys are present. This helps local testing when DNS
+    # or external access is unreliable.
+    if os.getenv("MOCK_LLM", "0") == "1":
+        return {
+            "name": "Jane Doe",
+            "location": "San Francisco, CA",
+            "work_experience_summary": "Senior engineer with 8 years experience in backend development."
+        }
+
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY is not configured")
 
@@ -31,7 +43,7 @@ def extract_structured_info(text: str, api_key: str, model: str = "gpt-4o-mini")
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     try:
-        r = httpx.post("https://api.openrouter.ai/v1/chat/completions", json=payload, headers=headers, timeout=30.0)
+        r = httpx.post(url, json=payload, headers=headers, timeout=30.0)
         r.raise_for_status()
         data = r.json()
 
@@ -66,5 +78,8 @@ def extract_structured_info(text: str, api_key: str, model: str = "gpt-4o-mini")
 
     except httpx.HTTPStatusError as he:
         raise RuntimeError(f"OpenRouter API error: {he.response.status_code} {he.response.text}")
+    except httpx.RequestError as re_err:
+        # network-level errors (DNS failure, connection refused, TLS, etc.)
+        raise RuntimeError(f"LLM network error contacting {url}: {re_err}")
     except Exception as e:
         raise RuntimeError(f"LLM request failed: {e}")

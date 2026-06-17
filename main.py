@@ -30,7 +30,12 @@ async def summarize_cv(file: UploadFile = File(...)):
             raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="OPENROUTER_API_KEY is not configured")
 
         try:
-            llm_result = extract_structured_info(text, api_key=settings.OPENROUTER_API_KEY, model=settings.OPENROUTER_MODEL)
+            llm_result = extract_structured_info(
+                text,
+                api_key=settings.OPENROUTER_API_KEY,
+                model=settings.OPENROUTER_MODEL,
+                url=settings.OPENROUTER_URL,
+            )
         except ValueError as ve:
             # client/config error
             raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(ve))
